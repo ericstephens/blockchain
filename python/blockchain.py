@@ -12,7 +12,7 @@ class Blockchain:
 
     def __init__(self):
         self.__current_transactions = []
-        self.__redis = redis.Redis()
+        self.__redis = redis.Redis(host='192.168.1.168', decode_responses=True)
         
         # Create the genesis block
         self.new_block(previous_hash='1', proof=100)
@@ -26,6 +26,10 @@ class Blockchain:
     def get_length(self):
         return self.__redis.llen(Blockchain.CHAIN)
 
+    # retrieve the whole chain
+    def get(self):
+        return self.__redis.lrange(Blockchain.CHAIN,0,-1)
+
     @property
     def current_transactions(self):
         return self.__current_transactions
@@ -36,6 +40,9 @@ class Blockchain:
 
     def reset_transactions(self):
         self.__current_transactions = []
+
+    def get_nodes(self):
+        return self.__redis.smembers(Blockchain.NODES)
 
     def get_node_count(self):
         return self.__redis.scard(Blockchain.NODES)
@@ -61,7 +68,6 @@ class Blockchain:
         else:
             raise ValueError('Invalid URL')
         
-        print(address_new)
         self.__redis.sadd(Blockchain.NODES, address_new)
 
     def valid_chain(self, chain):
@@ -102,7 +108,7 @@ class Blockchain:
         :return: True if our chain was replaced, False if not
         """
 
-        neighbours = self.nodes
+        neighbours = self.get_nodes()
         new_chain = None
 
         # We're only looking for chains longer than ours
