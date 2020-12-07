@@ -13,7 +13,6 @@ node_identifier = str(uuid4()).replace('-', '')
 # Instantiate the Blockchain
 blockchain = Blockchain()
 
-
 @app.route('/mine', methods=['GET'])
 def mine():
     # We run the proof of work algorithm to get the next proof...
@@ -61,11 +60,10 @@ def new_transaction():
 @app.route('/chain', methods=['GET'])
 def full_chain():
     response = {
-        'chain': blockchain.chain,
-        'length': len(blockchain.chain),
+        'chain': blockchain.get(),
+        'length': blockchain.get_length(),
     }
     return jsonify(response), 200
-
 
 @app.route('/nodes/register', methods=['POST'])
 def register_nodes():
@@ -80,7 +78,7 @@ def register_nodes():
 
     response = {
         'message': 'New nodes have been added',
-        'total_nodes': list(blockchain.nodes),
+        'total_nodes': list(blockchain.get_nodes()),
     }
     return jsonify(response), 201
 
@@ -92,16 +90,15 @@ def consensus():
     if replaced:
         response = {
             'message': 'Our chain was replaced',
-            'new_chain': blockchain.chain
+            'new_chain': blockchain.get()
         }
     else:
         response = {
             'message': 'Our chain is authoritative',
-            'chain': blockchain.chain
+            'chain': blockchain.get()
         }
 
     return jsonify(response), 200
-
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
