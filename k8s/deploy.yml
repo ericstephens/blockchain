@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blockchain-deploy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: blockchain
+  minReadySeconds: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: blockchain
+    spec:
+      containers:
+      - name: blockchain-pod
+        image: ericstephens/blockchain:v01
+        ports:
+        - containerPort: 5000
