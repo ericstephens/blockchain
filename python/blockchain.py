@@ -3,15 +3,45 @@ import json
 from time import time
 from urllib.parse import urlparse
 
+import redis
 
 class Blockchain:
-    def __init__(self):
-        self.current_transactions = []
-        self.chain = []
-        self.nodes = set()
 
+    NODES = "nodes"
+    CHAIN = "chain"
+
+    def __init__(self):
+        self.__current_transactions = []
+        self.__redis = redis.Redis()
+        
         # Create the genesis block
         self.new_block(previous_hash='1', proof=100)
+
+    def get_block(self,i):
+        return json.loads(self.__redis.lindex(Blockchain.CHAIN,i))
+
+    def add_block(self,block):
+        return self.__redis.rpush(Blockchain.CHAIN,json.dumps(block))
+
+    def get_length(self):
+        return self.__redis.llen(Blockchain.CHAIN)
+
+    @property
+    def current_transactions(self):
+        return self.__current_transactions
+
+    @property
+    def last_block(self):
+        return self.get_block(-1)
+
+    def reset_transactions(self):
+        self.__current_transactions = []
+
+    def get_node_count(self):
+        return self.__redis.scard(Blockchain.NODES)
+
+    def node_exists(self,node):
+        return self.__redis.sismember(Blockchain.NODES,node)
 
     def register_node(self, address):
         """
@@ -21,14 +51,18 @@ class Blockchain:
         """
 
         parsed_url = urlparse(address)
+        address_new = None
+
         if parsed_url.netloc:
-            self.nodes.add(parsed_url.netloc)
+            address_new = parsed_url.netloc
         elif parsed_url.path:
             # Accepts an URL without scheme like '192.168.0.5:5000'.
-            self.nodes.add(parsed_url.path)
+            address_new = parsed_url.path
         else:
             raise ValueError('Invalid URL')
-
+        
+        print(address_new)
+        self.__redis.sadd(Blockchain.NODES, address_new)
 
     def valid_chain(self, chain):
         """
@@ -38,11 +72,11 @@ class Blockchain:
         :return: True if valid, False if not
         """
 
-        last_block = chain[0]
+        last_block = self.get_block(0)
         current_index = 1
 
         while current_index < len(chain):
-            block = chain[current_index]
+            block = self.get_block(current_index)
             print(f'{last_block}')
             print(f'{block}')
             print("\n-----------\n")
@@ -72,7 +106,7 @@ class Blockchain:
         new_chain = None
 
         # We're only looking for chains longer than ours
-        max_length = len(self.chain)
+        max_length = self.get_length()
 
         # Grab and verify the chains from all the nodes in our network
         for node in neighbours:
@@ -104,17 +138,17 @@ class Blockchain:
         """
 
         block = {
-            'index': len(self.chain) + 1,
+            'index': self.get_length() + 1,
             'timestamp': time(),
             'transactions': self.current_transactions,
             'proof': proof,
-            'previous_hash': previous_hash or self.hash(self.chain[-1]),
+            'previous_hash': previous_hash or self.hash(self.get_block(-1)),
         }
 
         # Reset the current list of transactions
-        self.current_transactions = []
+        self.reset_transactions()
 
-        self.chain.append(block)
+        self.add_block(block)
         return block
 
     def new_transaction(self, sender, recipient, amount):
@@ -133,10 +167,6 @@ class Blockchain:
         })
 
         return self.last_block['index'] + 1
-
-    @property
-    def last_block(self):
-        return self.chain[-1]
 
     @staticmethod
     def hash(block):

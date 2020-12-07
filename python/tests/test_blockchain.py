@@ -3,11 +3,14 @@ import json
 from unittest import TestCase
 
 from blockchain import Blockchain
-
+import redis
 
 class BlockchainTestCase(TestCase):
 
     def setUp(self):
+        r = redis.Redis()
+        r.flushall()
+        
         self.blockchain = Blockchain()
 
     def create_block(self, proof=123, previous_hash='abc'):
@@ -20,7 +23,6 @@ class BlockchainTestCase(TestCase):
             amount=amount
         )
 
-
 class TestRegisterNodes(BlockchainTestCase):
 
     def test_valid_nodes(self):
@@ -28,22 +30,22 @@ class TestRegisterNodes(BlockchainTestCase):
 
         blockchain.register_node('http://192.168.0.1:5000')
 
-        self.assertIn('192.168.0.1:5000', blockchain.nodes)
+        self.assertTrue(blockchain.node_exists('192.168.0.1:5000'))
 
     def test_malformed_nodes(self):
         blockchain = Blockchain()
 
         blockchain.register_node('http//192.168.0.1:5000')
 
-        self.assertNotIn('192.168.0.1:5000', blockchain.nodes)
-
+        self.assertFalse(blockchain.node_exists('192.168.0.1:5000'))
+        
     def test_idempotency(self):
         blockchain = Blockchain()
 
         blockchain.register_node('http://192.168.0.1:5000')
         blockchain.register_node('http://192.168.0.1:5000')
 
-        assert len(blockchain.nodes) == 1
+        assert blockchain.get_node_count() == 1
 
 
 class TestBlocksAndTransactions(BlockchainTestCase):
@@ -54,7 +56,7 @@ class TestBlocksAndTransactions(BlockchainTestCase):
         latest_block = self.blockchain.last_block
 
         # The genesis block is create at initialization, so the length should be 2
-        assert len(self.blockchain.chain) == 2
+        assert self.blockchain.get_length() == 2
         assert latest_block['index'] == 2
         assert latest_block['timestamp'] is not None
         assert latest_block['proof'] == 123
@@ -87,9 +89,9 @@ class TestBlocksAndTransactions(BlockchainTestCase):
 
         created_block = self.blockchain.last_block
 
-        assert len(self.blockchain.chain) == 2
-        assert created_block is self.blockchain.chain[-1]
+        assert self.blockchain.get_length() == 2
 
+        assert(created_block == self.blockchain.get_block(-1))
 
 class TestHashingAndProofs(BlockchainTestCase):
 
