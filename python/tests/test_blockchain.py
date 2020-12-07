@@ -8,7 +8,7 @@ import redis
 class BlockchainTestCase(TestCase):
 
     def setUp(self):
-        r = redis.Redis()
+        r = redis.Redis(host='192.168.1.168')
         r.flushall()
         
         self.blockchain = Blockchain()
@@ -104,3 +104,17 @@ class TestHashingAndProofs(BlockchainTestCase):
 
         assert len(new_hash) == 64
         assert new_hash == self.blockchain.hash(new_block)
+
+class TestChainRetrieval(BlockchainTestCase):
+    def test(self):
+
+        self.create_block()
+        self.create_block()
+
+        chain_data = self.blockchain.get()
+
+        chain_length = self.blockchain.get_length()
+
+        self.assertEqual(chain_length,3)
+
+        self.assertEqual(len(chain_data),chain_length)
